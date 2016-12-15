@@ -15,6 +15,7 @@ import os
 import requests
 import pyinotify
 import configparser
+import daemon
 
 class Trigger(object):
         def __init__(self, cfg):
@@ -30,6 +31,7 @@ class Trigger(object):
 
         def fn_ignore(self):
                 pass
+
         def fn_mail(self):
                 if (self._msg) == 0:
                         return
@@ -73,19 +75,24 @@ def parseConfig(cfg):
         except:
                 sys.exit(1)
 
+if len(sys.argv) < 2:
+        print('Usage: %s [config]' % sys.argv[0])
+        sys.exit(1)
+
 # Configure watcher
 config = configparser.ConfigParser()
-config.read('watch.ini')
+config.read(sys.argv[1])
 parseConfig(config)
 print('Start watching...', config['generic']['watchlist'])
 
 # Start watching
-wm = pyinotify.WatchManager()
-handler = EventHandler(cfg=config)
-notifier = pyinotify.Notifier(wm, default_proc_fun=handler)
-wm.add_watch(config['generic']['watchlist'], pyinotify.IN_MODIFY)
+with daemon.DaemonContext():
+        wm = pyinotify.WatchManager()
+        handler = EventHandler(cfg=config)
+        notifier = pyinotify.Notifier(wm, default_proc_fun=handler)
+        wm.add_watch(config['generic']['watchlist'], pyinotify.IN_MODIFY)
 
-try:
-        notifier.loop()
-except err:
-        print('Starting failed')
+        try:
+                notifier.loop()
+        except err:
+                print('Starting failed')
